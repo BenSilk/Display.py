@@ -83,11 +83,11 @@ def get_min_max(ncs,vars,level,t):
           Z=ncs.variables[vars][t,:]
 	    
     if len(Z.shape)>1:
-        Z=Z[level,:]
+        Z=Z[:,level]
 
 
-    Zmin=min(Z)
-    Zmax=max(Z)
+    Zmin=numpy.amin(Z)
+    Zmax=numpy.amax(Z)
     return Z,numpy.round(Zmax,2),numpy.round(Zmin,2)
 
 def process(filein,ts,params,quiver,quiver_res,quiver_scale,zmin,zmax,bnd,level,lim):
@@ -96,7 +96,7 @@ def process(filein,ts,params,quiver,quiver_res,quiver_scale,zmin,zmax,bnd,level,
     ax = fig.add_subplot(111)
     ax.set_aspect('equal')
     tt1 = ax.text(.5, 1.05, '', transform = ax.transAxes, va='center',fontsize = 30)
-    ax.tick_params(labelsize=25)
+    ax.tick_params(labelsize=15)
 
 
     
@@ -106,8 +106,6 @@ def process(filein,ts,params,quiver,quiver_res,quiver_scale,zmin,zmax,bnd,level,
     ncs=netCDF4.Dataset(filein)
     X=ncs.variables['SCHISM_hgrid_node_x'][:]
     Y=ncs.variables['SCHISM_hgrid_node_y'][:]
-   # FX=ncs.variables['SCHISM_hgrid_face_x'][:]
- #   FY=ncs.variables['SCHISM_hgrid_face_y'][:]
     Z=ncs.variables['depth'][:]
     face=ncs.variables['SCHISM_hgrid_face_nodes'][:]-1
     nt=len(ncs.variables['time'])
@@ -143,7 +141,13 @@ def process(filein,ts,params,quiver,quiver_res,quiver_scale,zmin,zmax,bnd,level,
     ZZ[ZZ>Zmax]=Zmax
     ZZ[ZZ<Zmin]=Zmin
     levels = numpy.linspace(Zmin, Zmax, 60)
-    F=plt.tricontourf(X,Y,ZZ,face,vmin=Zmin,vmax=Zmax,cmap=plt.cm.Spectral_r,levels=levels)
+    print(len(X))
+    print(len(Y))
+    print(len(ZZ))
+    print(X.shape)
+    print(Y.shape)
+    print(ZZ.shape)
+    F=plt.tricontourf(X,Y,ZZ,vmin=Zmin,vmax=Zmax,cmap=plt.cm.Spectral_r,levels=levels)
     plt.clim(Zmin,Zmax)
     plt.xlabel('Easting (meters)',fontsize = 30)
     plt.ylabel('Northing (meters)',fontsize = 30)
