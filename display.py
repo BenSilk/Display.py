@@ -82,9 +82,10 @@ def get_min_max(ncs,vars,level,t):
     else:
           Z=ncs.variables[vars][t,:]
 	    
-    if len(Z.shape)>1:
-        Z=Z[:,level]
-
+    if len(Z.shape)==2:
+        Z=Z[:,t]
+    if len(Z.shape)>2:
+        Z=Z[:,t,level]
 
     Zmin=numpy.amin(Z)
     Zmax=numpy.amax(Z)
@@ -141,19 +142,18 @@ def process(filein,ts,params,quiver,quiver_res,quiver_scale,zmin,zmax,bnd,level,
     ZZ[ZZ>Zmax]=Zmax
     ZZ[ZZ<Zmin]=Zmin
     levels = numpy.linspace(Zmin, Zmax, 60)
-    print(len(X))
-    print(len(Y))
-    print(len(ZZ))
-    print(X.shape)
-    print(Y.shape)
-    print(ZZ.shape)
     F=plt.tricontourf(X,Y,ZZ,vmin=Zmin,vmax=Zmax,cmap=plt.cm.Spectral_r,levels=levels)
     plt.clim(Zmin,Zmax)
     plt.xlabel('Easting (meters)',fontsize = 30)
     plt.ylabel('Northing (meters)',fontsize = 30)
 
     cbar=plt.colorbar(F,ax=ax)#numpy.linspace(Zmin,Zmax,10))
-    cbar.set_label(r"%s" %(params), size=15)
+    if params == "temp":
+        cbar.set_label(r"%s" %("Water Temperature"), size=15)
+    elif params == "elev":
+        cbar.set_label(r"%s" %("Water Elevation"), size=15)
+    else:
+        cbar.set_label(r"%s" %(params), size=15)
     cbar.ax.tick_params(labelsize=10) 
     plt.draw()
     if bnd is not None: 
