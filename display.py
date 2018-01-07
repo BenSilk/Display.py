@@ -13,18 +13,19 @@ from scipy.interpolate import griddata
 import pylab
 
 def lat_lon_proportion(plt,ax):
+    global dar,pbar
 	#Calculate the distances along the axis
-	xlim=plt.xlim()
-	ylim=plt.ylim()
-	x_dist = numpy.diff(xlim);
-	y_dist = numpy.diff(ylim);
+    xlim=plt.xlim()
+    ylim=plt.ylim()
+    x_dist = numpy.diff(xlim);
+    y_dist = numpy.diff(ylim);
 
 	#Adjust the aspect ratio
-	c_adj = numpy.cos(numpy.mean(numpy.deg2rad(xlim)));
-	dar = [1,c_adj,1];
-	pbar = [x_dist[0]*c_adj/y_dist[0],1,1 ];
-	ax.set_aspect(abs(c_adj))
-	#ax.set_aspect(abs(x_dist[0]*c_adj/y_dist[0]))
+    c_adj = numpy.cos(numpy.mean(numpy.deg2rad(xlim)));
+    dar = [1,c_adj,1];
+    pbar = [x_dist[0]*c_adj/y_dist[0],1,1 ];
+    ax.set_aspect(abs(c_adj))
+    ax.set_aspect(abs(x_dist[0]*c_adj/y_dist[0]))
 
 def near2d_selfe(x, y, x0, y0, nnodes=1, nreturn='multiple'):
 
@@ -58,44 +59,45 @@ def near2d_selfe(x, y, x0, y0, nnodes=1, nreturn='multiple'):
 
 
 def plotpatch(bnd):
+    global pols
+    data=numpy.loadtxt(bnd)
+    x=data[:,0];
+    y=data[:,1];
 
-	data=numpy.loadtxt(bnd)
-	x=data[:,0];
-	y=data[:,1];
+    splits=numpy.bitwise_or(numpy.isnan(x),x>99999999999,y==1).nonzero()[0]
+    splits=numpy.insert(splits,0,-1)
+    splits=numpy.insert(splits,len(splits),len(splits))
+    pols=[]
+    for ist in range(0,len(splits)-2):
+        ind=numpy.arange(splits[ist]+1,splits[ist+1])
+        plt.fill( x[ind],y[ind],'silver')
 
-	splits=numpy.bitwise_or(numpy.isnan(x),x>99999999999,y==1).nonzero()[0]
-	splits=numpy.insert(splits,0,-1)
-	splits=numpy.insert(splits,len(splits),len(splits))
-	pols=[]
-	for ist in range(0,len(splits)-2):
-		ind=numpy.arange(splits[ist]+1,splits[ist+1])
-		plt.fill( x[ind],y[ind],'silver')
-
-def get_min_max(nc,vars,level,t):
-    
+def get_min_max(ncs,vars,level,t):
+    global Zmax
     if len(vars.split(',')) >1:
-        	  u,v=vars.split(',')
-                  u=nc.variables[u][t,:]
-                  v=nc.variables[v][t,:]
-                  Z=numpy.sqrt(u**2+v**2)
+        u,v=vars.split(',')
+        u=ncs.variables[u][t,:]
+        v=ncs.variables[v][t,:]
+        Z=numpy.sqrt(u**2+v**2)
     else:
-          	  Z=nc.variables[vars][t,:]
+          Z=ncs.variables[vars][t,:]
 	    
-    if len(Z.shape)>1:
-                  Z=Z[level,:]
+    if len(Z.shape)==2:
+        Z=Z[:,t]
+    if len(Z.shape)>2:
+        Z=Z[:,t,level]
 
-
-    Zmin=min(Z)
-    Zmax=max(Z)
+    Zmin=numpy.amin(Z)
+    Zmax=numpy.amax(Z)
     return Z,numpy.round(Zmax,2),numpy.round(Zmin,2)
 
 def process(filein,ts,params,quiver,quiver_res,quiver_scale,zmin,zmax,bnd,level,lim):
-
+    global X,Y,Z,face,nt,node
     fig = plt.figure(figsize=(15,9))
     ax = fig.add_subplot(111)
     ax.set_aspect('equal')
     tt1 = ax.text(.5, 1.05, '', transform = ax.transAxes, va='center',fontsize = 30)
-    ax.tick_params(labelsize=25)
+    ax.tick_params(labelsize=15)
 
 
     
@@ -103,10 +105,10 @@ def process(filein,ts,params,quiver,quiver_res,quiver_scale,zmin,zmax,bnd,level,
    
     
     ncs=netCDF4.Dataset(filein)
-    X=ncs.variables['x'][:]
-    Y=ncs.variables['y'][:]
+    X=ncs.variables['SCHISM_hgrid_node_x'][:]
+    Y=ncs.variables['SCHISM_hgrid_node_y'][:]
     Z=ncs.variables['depth'][:]
-    ele=ncs.variables['ele'][:]-1
+    face=ncs.variables['SCHISM_hgrid_face_nodes'][:]-1
     nt=len(ncs.variables['time'])
     
     if quiver is not None:
@@ -126,7 +128,7 @@ def process(filein,ts,params,quiver,quiver_res,quiver_scale,zmin,zmax,bnd,level,
     time = netCDF4.num2date(ncs.variables['time'][ts],ncs.variables['time'].units)
 
     
-    ZZ,ZZmax,ZZmin=get_min_max(ncs,params,level,ts)
+    ZZ,ZZmax,ZZmin = get_min_max(ncs,params,level,ts)
     if zmin is None:
         Zmin=ZZmin
     else:
@@ -140,17 +142,22 @@ def process(filein,ts,params,quiver,quiver_res,quiver_scale,zmin,zmax,bnd,level,
     ZZ[ZZ>Zmax]=Zmax
     ZZ[ZZ<Zmin]=Zmin
     levels = numpy.linspace(Zmin, Zmax, 60)
-    F=plt.tricontourf(X,Y,ele,ZZ,vmin=Zmin,vmax=Zmax,cmap=plt.cm.Spectral_r,levels=levels)
+    F=plt.tricontourf(X,Y,ZZ,vmin=Zmin,vmax=Zmax,cmap=plt.cm.Spectral_r,levels=levels)
     plt.clim(Zmin,Zmax)
     plt.xlabel('Easting (meters)',fontsize = 30)
     plt.ylabel('Northing (meters)',fontsize = 30)
 
     cbar=plt.colorbar(F,ax=ax)#numpy.linspace(Zmin,Zmax,10))
-    cbar.set_label(r"%s" %(params), size=30)
-    cbar.ax.tick_params(labelsize=25) 
+    if params == "temp":
+        cbar.set_label(r"%s" %("Water Temperature"), size=15)
+    elif params == "elev":
+        cbar.set_label(r"%s" %("Water Elevation"), size=15)
+    else:
+        cbar.set_label(r"%s" %(params), size=15)
+    cbar.ax.tick_params(labelsize=10) 
     plt.draw()
     if bnd is not None: 
- 	plotpatch(bnd)
+        plotpatch(bnd)
 
     if lim is not None:
         ax.set_xlim([lim[0], lim[1]])
@@ -159,9 +166,10 @@ def process(filein,ts,params,quiver,quiver_res,quiver_scale,zmin,zmax,bnd,level,
         ax.set_xlim([X.min(), X.max()])
         ax.set_ylim([Y.min(), Y.max()])
 
-    ax.set_axis_bgcolor('black')
+    ax.set_facecolor('black')
            
     if quiver is not None:
+        global mag, qk
         u,v=quiver.split(',')
                                     
         u=ncs.variables[u][ts,:]
