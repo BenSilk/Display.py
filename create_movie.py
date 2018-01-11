@@ -16,8 +16,8 @@ def lat_lon_proportion(plt,ax):
 	#Calculate the distances along the axis
 	xlim=plt.xlim()
 	ylim=plt.ylim()
-	x_dist = numpy.diff(xlim);
-	y_dist = numpy.diff(ylim);
+	#x_dist = numpy.diff(xlim);
+	#y_dist = numpy.diff(ylim);
 
 	#Adjust the aspect ratio
 	c_adj = numpy.cos(numpy.mean(numpy.deg2rad(xlim)));
@@ -72,6 +72,8 @@ def plotpatch(bnd):
 		plt.fill( x[ind],y[ind],'silver')
 
 def get_min_max(dirin,params,Istart,Iend,level):
+#    print("3")
+    global Z,b
     Zmin=numpy.inf
     Zmax=numpy.inf*-1
     for k in range(Istart,Iend+1):
@@ -89,16 +91,22 @@ def get_min_max(dirin,params,Istart,Iend,level):
                 else:
                     Z=nc.variables[vars][t,:]
 	    
-                if len(Z.shape)>1:
-                        Z=Z[level,:]
-
-		if Zmin==numpy.inf:
-		        z=Z
-
+#                if len(Z.shape)>1:
+#                    Z=Z[level,:]
+                if len(Z.shape)==2:
+#                    print("1")
+                    if t<10:
+                        Z=Z[:,t]
+#                    Z=Z[level,:]
+                elif len(Z.shape)==3:
+#                    print("2")
+                    Z=Z[:,t,level]
+            if Zmin==numpy.inf:
+                z=Z
 		
-		Zmin=min(Zmin,min(Z))
-		Zmax=max(Zmax,max(Z))
-    return z,numpy.round(Zmax,2),numpy.round(Zmin,2)
+        Zmin=min(Zmin,min(Z))
+        Zmax=max(Zmax,max(Z))
+    return Z,numpy.round(Zmax,2),numpy.round(Zmin,2)
 
 def extract_ts(Istart,Iend,node,dirin):
     E=[]
@@ -112,17 +120,19 @@ def extract_ts(Istart,Iend,node,dirin):
         E=numpy.hstack((E,nc.variables['elev'][:,node]))
     return E,T
 
-
+global r
+r=1
 
 def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scale,fps,zmin,zmax,bnd,level,lim):
-    
+#    print("5")
+    global r    
     figdir, file = os.path.split(moviefile)
 
     fig = plt.figure(figsize=(30,18))
     ax = fig.add_subplot(111)
     ax.set_aspect('equal')
     tt1 = ax.text(.5, 1.05, '', transform = ax.transAxes, va='center',fontsize = 30)
-    ax.tick_params(labelsize=25)
+    ax.tick_params(labelsize=15)
 
 
     
@@ -152,6 +162,7 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
     elev,time=extract_ts(Istart,Iend,node,dirin)
 
     ZZ,ZZmax,ZZmin=get_min_max(dirin,params,Istart,Iend,level)
+#    print("4")
     if zmin is None:
         Zmin=ZZmin
     else:
@@ -166,19 +177,26 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
 
     
     def init_img():
+            global r
+            if r >1:
+                return()
+            r+=1
             global nc,Q,F,tide
             
             ZZ[ZZ>Zmax]=Zmax
             ZZ[ZZ<Zmin]=Zmin
             levels = numpy.linspace(Zmin, Zmax, 60)
+#            print("6")
             F=plt.tricontourf(X,Y,ele,ZZ,vmin=Zmin,vmax=Zmax,cmap=plt.cm.Spectral_r,levels=levels)
+#            print("7")
             plt.clim(Zmin,Zmax)
             plt.xlabel('Easting (meters)',fontsize = 30)
             plt.ylabel('Northing (meters)',fontsize = 30)
-
+            
             cbar=plt.colorbar(F,ax=ax)#numpy.linspace(Zmin,Zmax,10))
             cbar.set_label(r"Current speed [m.s^-1]", size=30)
-            cbar.ax.tick_params(labelsize=25) 
+#            plt.locator_params(nticks=8)
+            cbar.ax.tick_params(labelsize=15) 
             plt.draw()
             nc = None
             Q= None
@@ -192,19 +210,19 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
                 ax.set_xlim([X.min(), X.max()])
                 ax.set_ylim([Y.min(), Y.max()])
 
-            ax.set_axis_bgcolor('black')
+            ax.set_facecolor('black')
             # ADD ELEVATION
             rect = [0.1,0.1,0.3,0.2] # l,b,w,h
             ax2 = fig.add_axes(rect)
 
             ax2.plot(time,elev,color='b', lw=2)
-            zeros = elev*0
+#            zeros = elev*0
             tide=ax2.plot([time[0],time[0]],[-1,1], color='k')
             ax2.set_ylim([-1,1])
             ax2.set_ylabel('elevation [m]',fontsize = 30)
             ax2.xaxis.set_major_locator(   DayLocator() )
             ax2.xaxis.set_major_formatter( DateFormatter( '%d ' ) )
-            ax2.tick_params(labelsize=25)
+            ax2.tick_params(labelsize=15)
 
     def update_img(k):
             global nc,Q,F,tide
@@ -213,16 +231,16 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
             K=k-(N*nt)
           
             for vars in params:
-                fullfile=os.path.join(dirin,'schout_'+str(Istart+N)+'.nc')
+                fullfile=os.path.join(dirin,'schout_'+str(Istart)+'.nc')
                 
                 if nc is not None:
                     if nc.filepath() != fullfile :
                         nc.close()
                         nc=netCDF4.Dataset(fullfile)
-                        print 'Reading %s' % fullfile
+                        print ('Reading %s' % fullfile)
                 else:
                     nc=netCDF4.Dataset(fullfile)
-                    print 'Reading %s' % fullfile
+                    print ('Reading %s' % fullfile)
                         
                 
                     
@@ -247,7 +265,7 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
                 Z[Z>Zmax]=Zmax
                 Z[Z<Zmin]=Zmin
                 levels = numpy.linspace(Zmin, Zmax, 60)
-                F=ax.tricontourf(X,Y,ele,Z,cmap=plt.cm.Spectral_r,zmin=Zmin,zmax=Zmax,levels=levels)
+                F=ax.tricontourf(X,Y,ele,Z,cmap=plt.cm.Spectral_r,vmin=Zmin,vmax=Zmax,levels=levels)
 
 
                 
@@ -260,10 +278,10 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
                             if nc.filepath() != fullfile :
                                 nc.close()
                                 nc=netCDF4.Dataset(fullfile)
-                                print 'Reading %s' % fullfile
+                                print ('Reading %s' % fullfile)
                         else:
                             nc=netCDF4.Dataset(fullfile)
-                            print 'Reading %s' % fullfile
+                            print ('Reading %s' % fullfile)
                     u,v=vars_quiver.split(' ')
                                     
                     u=nc.variables[u][K,:]
@@ -276,13 +294,13 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
                     U = griddata(XY, u,(Xreg,Yreg),method='linear')
                     V = griddata(XY, v,(Xreg,Yreg),method='linear')
 
-                    mag=numpy.sqrt(U**2+V**2)
+#                    mag=numpy.sqrt(U**2+V**2)
                     
                     U[U==0]=numpy.NaN
                     V[V==0]=numpy.NaN
                     
            
-                    ix=3
+#                    ix=3
                    
                     if Q is not None:
                # 
@@ -292,13 +310,14 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
 
                     else:
                         Q = ax.quiver(Xreg, Yreg, U, V,scale=quiver_scale,zorder=1,color='k')
-                        qk = ax.quiverkey(Q,0.1,0.1,1,'1m/s')
+#                        qk = ax.quiverkey(Q,0.1,0.1,1,'1m/s')
 
 
                 dtime = netCDF4.num2date(nc.variables['time'][K],ncs.variables['time'].units)
               
                 tide[0].set_data([dtime,dtime],[-1,1])
-                tt1.set_text(dtime.strftime("%Y-%m-%d %H:%M"))
+#                print("1")
+#                tt1.    text(dtime.strftime("%Y-%m-%d %H:%M"))
                 #plt.draw()
 
                 plt.savefig( os.path.join( figdir,'current_snapshot_%03i.png'%k), dpi=dpi )
@@ -314,14 +333,14 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
     init_img()
     for kk in range(0,tot):
         update_img(kk)
-    #ani = animation.FuncAnimation(fig,update_img,frames=10,interval=fps,init_func=init_img,blit=True)
+    ani = animation.FuncAnimation(fig,update_img,frames=10,interval=fps,init_func=init_img,blit=False)
 
-    #writer = animation.FFMpegWriter()
-    #ani.save(moviefile)#,writer=writer)#,dpi=dpi)
+    writer = animation.FFMpegWriter()
+    ani.save(moviefile,writer=writer)#,dpi=dpi)
     figdir=figdir+'/'
     os.system('convert -loop 0 -delay %i %scurrent_snapshot_*.png %s'%(fps,figdir,moviefile) )
     os.system('rm %scurrent_snapshot_*.png'%(figdir) )
-    print 'file: %s created'%moviefile
+    print ('file: %s created'%moviefile)
     
 if __name__ == "__main__":
     import argparse
@@ -348,10 +367,10 @@ if __name__ == "__main__":
 
 
     ### PRINT IT ALL
-    print 'output name : %s' % (args.fileout)
-    print 'Direcory : %s' % (args.dirout)
-    print 'From file #%i and #%i' % (args.INDstart,args.INDend)
-    print 'Do parameters : %s' % (args.params)
+    print ('output name : %s' % (args.fileout))
+    print ('Directory : %s' % (args.dirout))
+    print ('From file #%i and #%i' % (args.INDstart,args.INDend))
+    print ('Do parameters : %s' % (args.params))
 
 
 
