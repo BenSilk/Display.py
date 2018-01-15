@@ -91,19 +91,20 @@ def get_min_max(dirin,params,Istart,Iend,level):
                 else:
                     Z=nc.variables[vars][t,:]
 	    
-#                if len(Z.shape)>1:
-#                    Z=Z[level,:]
-                if len(Z.shape)==2:
+                if len(Z.shape)>1:
+                    Z=Z[:,level]
+#                if len(Z.shape)==2:
 #                    print("1")
-                    if t<10:
-                        Z=Z[:,t]
+#                    if t<10:
+#                        Z=Z[:,t]
+#                    else:
+#                        Z=Z[:,9]
 #                    Z=Z[level,:]
                 elif len(Z.shape)==3:
 #                    print("2")
                     Z=Z[:,t,level]
             if Zmin==numpy.inf:
                 z=Z
-		
         Zmin=min(Zmin,min(Z))
         Zmax=max(Zmax,max(Z))
     return Z,numpy.round(Zmax,2),numpy.round(Zmin,2)
@@ -125,7 +126,7 @@ r=1
 
 def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scale,fps,zmin,zmax,bnd,level,lim):
 #    print("5")
-    global r    
+    global r,X    
     figdir, file = os.path.split(moviefile)
 
     fig = plt.figure(figsize=(30,18))
@@ -145,6 +146,7 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
     Z=ncs.variables['depth'][:]
     ele=ncs.variables['SCHISM_hgrid_face_nodes'][...,:3]-1
     nt=len(ncs.variables['time'])
+#    t=ncs.variables['time']
     
     if quiver is not None:
         if lim is not None:
@@ -244,20 +246,23 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
                         
                 
                     
-                if 'two'  in nc.variables[vars].dimensions:
-                    tmp=nc.variables[vars][K]
-                    u=tmp[...,0]
-                    v=tmp[...,1]
-
-                    if len(v.shape)>1:
-                        u=u[level,:]
-                        v=v[level,:]
-
-                    Z=numpy.sqrt(u**2+v**2)
-                else:
-                    Z=nc.variables[vars][K,:]
-                    if len(Z.shape)>1:
-                        Z=Z[level,:]
+#                if 'two'  in nc.variables[vars].dimensions:
+#                    tmp=nc.variables[vars][K]
+#                    u=tmp[...,0]
+#                    v=tmp[...,1]
+#
+#                    if len(v.shape)>1:
+#                        u=u[level,:]
+#                        v=v[level,:]
+#
+#                    Z=numpy.sqrt(u**2+v**2)
+#                else:
+                Z=nc.variables[vars][K,:]
+                if len(Z.shape)==2:
+                    Z=Z[:,level]
+                elif len(Z.shape)==3:
+                    Z=Z[:,level,1]
+                
             
                 for coll in F.collections:
                     coll.remove() 
@@ -317,8 +322,8 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
               
                 tide[0].set_data([dtime,dtime],[-1,1])
 #                print("1")
-#                tt1.    text(dtime.strftime("%Y-%m-%d %H:%M"))
-                #plt.draw()
+                tt1.set_text(dtime.strftime("%Y-%m-%d %H:%M"))
+                plt.draw()
 
                 plt.savefig( os.path.join( figdir,'current_snapshot_%03i.png'%k), dpi=dpi )
                 
