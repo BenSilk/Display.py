@@ -12,6 +12,9 @@ import json
 from scipy.interpolate import griddata
 import pylab
 
+global r, h
+r=h=1
+
 def lat_lon_proportion(plt,ax):
 	#Calculate the distances along the axis
 	xlim=plt.xlim()
@@ -121,12 +124,11 @@ def extract_ts(Istart,Iend,node,dirin):
         E=numpy.hstack((E,nc.variables['elev'][:,node]))
     return E,T
 
-global r
-r=1
+
 
 def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scale,fps,zmin,zmax,bnd,level,lim):
 #    print("5")
-    global r,X    
+    global r,X, h    
     figdir, file = os.path.split(moviefile)
 
     fig = plt.figure(figsize=(30,18))
@@ -196,7 +198,16 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
             plt.ylabel('Northing (meters)',fontsize = 30)
             
             cbar=plt.colorbar(F,ax=ax)#numpy.linspace(Zmin,Zmax,10))
-            cbar.set_label(r"Current speed [m.s^-1]", size=30)
+            if params == "elev": #Find out what units are used.
+                cbar.set_label(r"Wave height [m]", size=30)#Elevation probably meters
+            elif params == "temp":
+                cbar.set_label(r"Water Temperature [°C]", size=30)#Temperature probably °C
+            elif params == "hvel":
+                cbar.set_label(r"Current speed [m.s^-1]", size=30)#3D water current probably m.s^-1
+            elif params == "dahv":
+                cbar.set_label(r"Current speed [m.s^-1]", size=30)#2D water current probably m.s^-1
+            else:
+                cbar.set_label(r"Current speed [m.s^-1]", size=30)
 #            plt.locator_params(nticks=8)
             cbar.ax.tick_params(labelsize=15) 
             plt.draw()
@@ -227,11 +238,11 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
             ax2.tick_params(labelsize=15)
 
     def update_img(k):
-            global nc,Q,F,tide
+            global nc,Q,F,tide,h
 
             N=(k/nt)
-            K=k-(N*nt)
-          
+#            K=k-(N*nt)
+
             for vars in params:
                 fullfile=os.path.join(dirin,'schout_'+str(Istart)+'.nc')
                 
@@ -247,7 +258,8 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
                 
                     
 #                if 'two'  in nc.variables[vars].dimensions:
-#                    tmp=nc.variables[vars][K]
+##                    print("1")
+#                    tmp=nc.variables[vars][k-1]
 #                    u=tmp[...,0]
 #                    v=tmp[...,1]
 #
@@ -257,7 +269,12 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
 #
 #                    Z=numpy.sqrt(u**2+v**2)
 #                else:
-                Z=nc.variables[vars][K,:]
+#                print(h)
+#                h+=1
+                try:
+                    Z=nc.variables[vars][k,:]
+                except IndexError:
+                    print("1")
                 if len(Z.shape)==2:
                     Z=Z[:,level]
                 elif len(Z.shape)==3:
@@ -289,8 +306,8 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
                             print ('Reading %s' % fullfile)
                     u,v=vars_quiver.split(' ')
                                     
-                    u=nc.variables[u][K,:]
-                    v=nc.variables[v][K,:]
+                    u=nc.variables[u][k,:]
+                    v=nc.variables[v][k,:]
 
                     if len(u.shape)>1:
                         u=u[level,:]
@@ -318,7 +335,7 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
 #                        qk = ax.quiverkey(Q,0.1,0.1,1,'1m/s')
 
 
-                dtime = netCDF4.num2date(nc.variables['time'][K],ncs.variables['time'].units)
+                dtime = netCDF4.num2date(nc.variables['time'][k-1],ncs.variables['time'].units)
               
                 tide[0].set_data([dtime,dtime],[-1,1])
 #                print("1")
@@ -334,11 +351,11 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
     
     
         
-    tot= (Iend+1-Istart)*nt
-    init_img()
-    for kk in range(0,tot):
-        update_img(kk)
-    ani = animation.FuncAnimation(fig,update_img,frames=10,interval=fps,init_func=init_img,blit=False)
+#    tot= (Iend+1-Istart)*nt
+#    init_img()
+#    for kk in range(0,tot):
+#        update_img(kk)
+    ani = animation.FuncAnimation(fig,update_img,frames=95,interval=fps,init_func=init_img,blit=False)
 
     writer = animation.FFMpegWriter()
     ani.save(moviefile,writer=writer)#,dpi=dpi)
