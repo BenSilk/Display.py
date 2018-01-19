@@ -1,16 +1,24 @@
 #!/usr/bin/env python2.7
 
+##Note - attempting to create a move with more than 97 frames will throw an
+##UnboundLocalError. This should be a IndexError but I supressed it as in 
+##other situations the code would throw and index error but otherwise work fine.
+##This occurs on lines 261-264. The rest of the code in that area is sub-par
+##and may need re-writing as I commented a large section of it out due to issues
+##with the paramater hvel. Running this program with the paramater hvel produces
+##a movie in which all frames are identical. 
+
 import os,sys
 import netCDF4
 import numpy
 import matplotlib.animation as animation
-import matplotlib.tri as mtri
-from matplotlib.collections import PolyCollection,LineCollection
+#import matplotlib.tri as mtri #Commented out as unused
+#from matplotlib.collections import PolyCollection,LineCollection #Commented out as unused
 from matplotlib.dates import YearLocator, DayLocator, DateFormatter, AutoDateLocator
 import matplotlib.pyplot as plt
 import json
 from scipy.interpolate import griddata
-import pylab
+#import pylab #Commented out as unused
 
 global r, h
 r=h=1
@@ -18,14 +26,14 @@ r=h=1
 def lat_lon_proportion(plt,ax):
 	#Calculate the distances along the axis
 	xlim=plt.xlim()
-	ylim=plt.ylim()
-	#x_dist = numpy.diff(xlim);
-	#y_dist = numpy.diff(ylim);
+#	ylim=plt.ylim() #Commented out as variable unused
+#	x_dist = numpy.diff(xlim); #Commented out as variable unused
+#	y_dist = numpy.diff(ylim); #Commented out as variable unused
 
 	#Adjust the aspect ratio
 	c_adj = numpy.cos(numpy.mean(numpy.deg2rad(xlim)));
-	dar = [1,c_adj,1];
-	pbar = [x_dist[0]*c_adj/y_dist[0],1,1 ];
+#	dar = [1,c_adj,1]; #Commented out as variable unused
+#	pbar = [x_dist[0]*c_adj/y_dist[0],1,1 ]; #Commented out as variable unused
 	ax.set_aspect(abs(c_adj))
 	#ax.set_aspect(abs(x_dist[0]*c_adj/y_dist[0]))
 
@@ -75,7 +83,6 @@ def plotpatch(bnd):
 		plt.fill( x[ind],y[ind],'silver')
 
 def get_min_max(dirin,params,Istart,Iend,level):
-#    print("3")
     global Z,b
     Zmin=numpy.inf
     Zmax=numpy.inf*-1
@@ -96,18 +103,11 @@ def get_min_max(dirin,params,Istart,Iend,level):
 	    
                 if len(Z.shape)>1:
                     Z=Z[:,level]
-#                if len(Z.shape)==2:
-#                    print("1")
-#                    if t<10:
-#                        Z=Z[:,t]
-#                    else:
-#                        Z=Z[:,9]
-#                    Z=Z[level,:]
                 elif len(Z.shape)==3:
-#                    print("2")
                     Z=Z[:,t,level]
             if Zmin==numpy.inf:
-                z=Z
+#                z=Z #Commented out as variable unused
+                pass
         Zmin=min(Zmin,min(Z))
         Zmax=max(Zmax,max(Z))
     return Z,numpy.round(Zmax,2),numpy.round(Zmin,2)
@@ -127,7 +127,6 @@ def extract_ts(Istart,Iend,node,dirin):
 
 
 def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scale,fps,zmin,zmax,bnd,level,lim):
-#    print("5")
     global r,X, h    
     figdir, file = os.path.split(moviefile)
 
@@ -148,7 +147,7 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
     Z=ncs.variables['depth'][:]
     ele=ncs.variables['SCHISM_hgrid_face_nodes'][...,:3]-1
     nt=len(ncs.variables['time'])
-#    t=ncs.variables['time']
+#    t=ncs.variables['time'] #Commented out as variable unused
     
     if quiver is not None:
         if lim is not None:
@@ -166,7 +165,6 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
     elev,time=extract_ts(Istart,Iend,node,dirin)
 
     ZZ,ZZmax,ZZmin=get_min_max(dirin,params,Istart,Iend,level)
-#    print("4")
     if zmin is None:
         Zmin=ZZmin
     else:
@@ -182,33 +180,28 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
     
     def init_img():
             global r
-            if r >1:
-                return()
+            if r >1: ##When this function is run more than once, it causes errors.
+                return() #This code prevents that.
             r+=1
             global nc,Q,F,tide
             
             ZZ[ZZ>Zmax]=Zmax
             ZZ[ZZ<Zmin]=Zmin
             levels = numpy.linspace(Zmin, Zmax, 60)
-#            print("6")
             F=plt.tricontourf(X,Y,ele,ZZ,vmin=Zmin,vmax=Zmax,cmap=plt.cm.Spectral_r,levels=levels)
-#            print("7")
             plt.clim(Zmin,Zmax)
             plt.xlabel('Easting (meters)',fontsize = 30)
             plt.ylabel('Northing (meters)',fontsize = 30)
             
             cbar=plt.colorbar(F,ax=ax)#numpy.linspace(Zmin,Zmax,10))
-            if params == "elev": #Find out what units are used.
+            if params == ['elev']: #Find out what units are used.
                 cbar.set_label(r"Wave height [m]", size=30)#Elevation probably meters
-            elif params == "temp":
+            elif params == ['temp']:
                 cbar.set_label(r"Water Temperature [°C]", size=30)#Temperature probably °C
-            elif params == "hvel":
-                cbar.set_label(r"Current speed [m.s^-1]", size=30)#3D water current probably m.s^-1
-            elif params == "dahv":
-                cbar.set_label(r"Current speed [m.s^-1]", size=30)#2D water current probably m.s^-1
+            elif params == ['hvel'] or params == ['dahv']:
+                cbar.set_label(r"Current speed [m.s^-1]", size=30)#3D & 2D water current probably m.s^-1
             else:
                 cbar.set_label(r"Current speed [m.s^-1]", size=30)
-#            plt.locator_params(nticks=8)
             cbar.ax.tick_params(labelsize=15) 
             plt.draw()
             nc = None
@@ -229,7 +222,7 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
             ax2 = fig.add_axes(rect)
 
             ax2.plot(time,elev,color='b', lw=2)
-#            zeros = elev*0
+#            zeros = elev*0 #Commented out as variable unused
             tide=ax2.plot([time[0],time[0]],[-1,1], color='k')
             ax2.set_ylim([-1,1])
             ax2.set_ylabel('elevation [m]',fontsize = 30)
@@ -241,7 +234,7 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
             global nc,Q,F,tide,h
 
             N=(k/nt)
-#            K=k-(N*nt)
+#            K=k-(N*nt) #Commented out as variable unused
 
             for vars in params:
                 fullfile=os.path.join(dirin,'schout_'+str(Istart)+'.nc')
@@ -255,10 +248,11 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
                     nc=netCDF4.Dataset(fullfile)
                     print ('Reading %s' % fullfile)
                         
+                ##The following section of code prabably needs to be re-written,
+                ##out a section that was causing problems with the parameter hvel
+                ##and suppressed and error messaage that did not seem to affect the output.
                 
-                    
 #                if 'two'  in nc.variables[vars].dimensions:
-##                    print("1")
 #                    tmp=nc.variables[vars][k-1]
 #                    u=tmp[...,0]
 #                    v=tmp[...,1]
@@ -269,17 +263,14 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
 #
 #                    Z=numpy.sqrt(u**2+v**2)
 #                else:
-#                print(h)
-#                h+=1
                 try:
-                    Z=nc.variables[vars][k,:]
-                except IndexError:
-                    print("1")
-                if len(Z.shape)==2:
+                    Z=nc.variables[vars][k-1,:] ##This code will occasionally
+                except IndexError: #throw index error that appear to have no
+                    pass           #effect on the file outputted by the program
+                if len(Z.shape)==2:#so I suppressed the error message.
                     Z=Z[:,level]
                 elif len(Z.shape)==3:
-                    Z=Z[:,level,1]
-                
+                    Z=Z[:,level,1]                
             
                 for coll in F.collections:
                     coll.remove() 
@@ -316,29 +307,28 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
                     U = griddata(XY, u,(Xreg,Yreg),method='linear')
                     V = griddata(XY, v,(Xreg,Yreg),method='linear')
 
-#                    mag=numpy.sqrt(U**2+V**2)
+#                    mag=numpy.sqrt(U**2+V**2) #Commented out as variable unused
                     
                     U[U==0]=numpy.NaN
                     V[V==0]=numpy.NaN
                     
            
-#                    ix=3
+#                    ix=3 #Commented out as variable unused
                    
                     if Q is not None:
-               # 
+                
                        Q.set_UVC(U,V)
                        Q.set_zorder(10)
 
 
                     else:
                         Q = ax.quiver(Xreg, Yreg, U, V,scale=quiver_scale,zorder=1,color='k')
-#                        qk = ax.quiverkey(Q,0.1,0.1,1,'1m/s')
+#                        qk = ax.quiverkey(Q,0.1,0.1,1,'1m/s') #Commented out as variable unused
 
 
                 dtime = netCDF4.num2date(nc.variables['time'][k-1],ncs.variables['time'].units)
               
                 tide[0].set_data([dtime,dtime],[-1,1])
-#                print("1")
                 tt1.set_text(dtime.strftime("%Y-%m-%d %H:%M"))
                 plt.draw()
 
@@ -351,8 +341,8 @@ def process(moviefile,dirin,Istart,Iend,dpi,params,quiver,quiver_res,quiver_scal
     
     
         
-#    tot= (Iend+1-Istart)*nt
-#    init_img()
+#    tot= (Iend+1-Istart)*nt #I was unable to determine the use of this code,
+#    init_img()              #and it was causing Index Errors, so I commented it out.
 #    for kk in range(0,tot):
 #        update_img(kk)
     ani = animation.FuncAnimation(fig,update_img,frames=95,interval=fps,init_func=init_img,blit=False)
